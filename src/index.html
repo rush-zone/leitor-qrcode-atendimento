@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sistema de Atendimento Hospitalar</title>
+<style>
+:root{--bg:#f4f5f7;--surface:#ffffff;--surface2:#f8f9fa;--border:#e2e5ea;--border2:#cdd1d8;--text:#111827;--text2:#6b7280;--text3:#9ca3af;--blue:#185FA5;--blue2:#0C447C;--green:#3B6D11;--green2:#27500A;--red:#A32D2D;--red2:#791F1F;--amber:#854F0B;--radius:10px;--radius-sm:7px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+.nav{display:flex;gap:4px;padding:10px 20px;background:var(--surface);border-bottom:1px solid var(--border);flex-wrap:wrap;align-items:center;position:sticky;top:0;z-index:100;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.nav-title{font-size:14px;font-weight:600;color:var(--text);margin-right:10px}
+.nav-btn{padding:7px 14px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:transparent;color:var(--text2);cursor:pointer;font-size:13px;transition:all .15s}
+.nav-btn.active{background:var(--blue);color:#fff;border-color:var(--blue)}
+.nav-btn:hover:not(.active){background:var(--surface2)}
+.screen{display:none;padding:20px;max-width:1400px;margin:0 auto}
+.screen.active{display:block}
+.card{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);padding:20px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.card-title{font-size:14px;font-weight:600;color:var(--text);margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.grid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+@media(max-width:768px){.grid2,.grid3,.grid4{grid-template-columns:1fr}}
+label{font-size:12px;color:var(--text2);display:block;margin-bottom:5px;font-weight:500}
+input[type=text],input[type=password],input[type=number],select,textarea{width:100%;padding:9px 12px;border:1px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface2);color:var(--text);font-size:13px;font-family:inherit;outline:none;transition:border .15s}
+input:focus,select:focus,textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(24,95,165,.1)}
+textarea{resize:vertical;min-height:75px}
+.btn{padding:9px 18px;border-radius:var(--radius-sm);border:1px solid var(--border2);cursor:pointer;font-size:13px;font-weight:500;transition:all .15s;font-family:inherit}
+.btn-primary{background:var(--blue);color:#fff;border-color:var(--blue)}
+.btn-primary:hover{background:var(--blue2)}
+.btn-success{background:var(--green);color:#fff;border-color:var(--green)}
+.btn-success:hover{background:var(--green2)}
+.btn-danger{background:var(--red);color:#fff;border-color:var(--red)}
+.btn-danger:hover{background:var(--red2)}
+.btn-amber{background:var(--amber);color:#fff;border-color:var(--amber)}
+.btn-green{background:#1D9E75;color:#fff;border-color:#1D9E75}
+.btn-outline{background:transparent;color:var(--text)}
+.btn-outline:hover{background:var(--surface2)}
+.btn-sm{padding:6px 12px;font-size:12px}
+.badge{display:inline-block;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:600}
+.badge-waiting{background:#FAEEDA;color:#854F0B}
+.badge-attending{background:#EAF3DE;color:#3B6D11}
+.badge-done{background:#E6F1FB;color:#185FA5}
+.metric{background:var(--surface2);border-radius:var(--radius-sm);padding:16px;text-align:center;border:1px solid var(--border)}
+.metric-label{font-size:11px;color:var(--text2);margin-bottom:6px;font-weight:500;text-transform:uppercase;letter-spacing:.5px}
+.metric-value{font-size:28px;font-weight:600;color:var(--text)}
+.qt{width:100%;border-collapse:collapse}
+.qt th{font-size:11px;color:var(--text2);font-weight:600;text-align:left;padding:8px 12px;border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:.4px}
+.qt td{font-size:13px;color:var(--text);padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
+.qt tr:last-child td{border-bottom:none}
+.qt tr:hover td{background:var(--surface2)}
+.notify{padding:10px 14px;border-radius:var(--radius-sm);font-size:13px;margin-bottom:12px;display:none;font-weight:500}
+.n-ok{background:#EAF3DE;color:#27500A;border:1px solid #C0DD97;display:block}
+.n-warn{background:#FAEEDA;color:#633806;border:1px solid #FAC775;display:block}
+.n-info{background:#E6F1FB;color:#0C447C;border:1px solid #B5D4F4;display:block}
+.scan-bar{display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:var(--radius-sm);background:var(--surface2);border:1px solid var(--border);margin-bottom:14px;font-size:13px;color:var(--text2)}
+.dot{width:8px;height:8px;border-radius:50%;background:#639922;animation:pulse 1.5s infinite;flex-shrink:0}
+.dot.red{background:var(--red)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.timer-big{font-size:72px;font-weight:700;text-align:center;letter-spacing:-3px;font-variant-numeric:tabular-nums;color:var(--text);line-height:1}
+.timer-big.warn{color:#BA7517}.timer-big.danger{color:var(--red)}
+.prog-wrap{width:100%;height:8px;background:var(--surface2);border-radius:99px;overflow:hidden;margin-top:12px;border:1px solid var(--border)}
+.prog-fill{height:100%;border-radius:99px;transition:width 1s linear,background 1s;background:var(--blue)}
+/* TV */
+.tv{background:#0a0a0a;border-radius:var(--radius);overflow:hidden;min-height:380px;color:#fff;box-shadow:0 4px 20px rgba(0,0,0,.2)}
+.tv-head{background:var(--blue);padding:18px 28px;display:flex;justify-content:space-between;align-items:center}
+.tv-cur{padding:28px;background:#111}
+.tv-q{padding:16px 28px}
+.tv-qi{display:flex;align-items:center;gap:16px;padding:10px 0;border-bottom:1px solid #1e1e1e}
+/* Modal */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:1000}
+.modal-bg.show{display:flex}
+.modal{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);padding:28px;width:360px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,.2)}
+/* Pulseira */
+.ticket-print{background:#fff;border-radius:12px;border:2px dashed #ccc;padding:22px;max-width:280px;margin:0 auto;color:#111}
+/* Consultório cards */
+.consul-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:16px}
+.consul-card{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);padding:16px;cursor:pointer;transition:all .15s}
+.consul-card:hover{border-color:var(--blue);box-shadow:0 2px 8px rgba(24,95,165,.1)}
+.consul-card.active-c{border-color:var(--blue);border-width:2px;background:#f0f6ff}
+.consul-status{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:6px}
+.cs-free{background:#639922}.cs-busy{background:var(--red)}.cs-off{background:#aaa}
+/* Login */
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg)}
+.login-card{background:var(--surface);border-radius:var(--radius);border:1px solid var(--border);padding:36px;width:340px;box-shadow:0 4px 24px rgba(0,0,0,.08)}
+.bip-ind{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:3px 9px;border-radius:99px;background:#EAF3DE;color:#27500A;opacity:0;transition:opacity .3s;margin-left:auto}
+.bip-ind.show{opacity:1}
+/* Scrollable tables */
+.table-wrap{overflow-x:auto}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div class="modal-bg show" id="login-modal">
+  <div class="login-card">
+    <div style="text-align:center;margin-bottom:28px">
+      <div style="width:52px;height:52px;background:var(--blue);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 14px">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+      </div>
+      <div style="font-size:18px;font-weight:700">Hospital Municipal</div>
+      <div style="font-size:13px;color:var(--text2);margin-top:3px">Sistema de Atendimento</div>
+    </div>
+    <div id="login-notify" class="notify"></div>
+    <div style="margin-bottom:12px">
+      <label>Perfil de acesso</label>
+      <select id="login-perfil" onchange="toggleSenhaField()">
+        <option value="recepcao">Recepção</option>
+        <option value="medico">Consultório / Médico</option>
+        <option value="admin">Administrador</option>
+        <option value="tv">Painel TV (sem senha)</option>
+      </select>
+    </div>
+    <div style="margin-bottom:18px" id="senha-wrap">
+      <label>Senha</label>
+      <input type="password" id="login-senha" placeholder="Digite a senha..." onkeydown="if(event.key==='Enter')fazerLogin()" />
+    </div>
+    <button class="btn btn-primary" onclick="fazerLogin()" style="width:100%;padding:11px">Entrar</button>
+    <div style="font-size:11px;color:var(--text3);text-align:center;margin-top:14px;line-height:1.6">
+      Senhas padrão:<br>
+      Recepção <b>1234</b> · Médico <b>5678</b> · Admin <b>9999</b>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="main-app" style="display:none">
+<div class="nav">
+  <span class="nav-title">Hospital Municipal</span>
+  <button class="nav-btn" id="nb-recepcao" onclick="showScreen('recepcao',this)" style="display:none">Recepção</button>
+  <button class="nav-btn active" id="nb-sala-espera" onclick="showScreen('sala-espera',this)">TV Espera</button>
+  <button class="nav-btn" id="nb-consultorio" onclick="showScreen('consultorio',this)" style="display:none">Consultório</button>
+  <button class="nav-btn" id="nb-admin" onclick="showScreen('admin',this)" style="display:none">Admin</button>
+  <span id="bip-ind" class="bip-ind">&#10003; Scan OK</span>
+  <span id="user-label" style="font-size:12px;color:var(--text2);margin-left:6px"></span>
+  <button class="btn btn-outline btn-sm" onclick="sair()" style="font-size:12px;margin-left:6px">Sair</button>
+</div>
+
+<!-- RECEPÇÃO -->
+<div id="s-recepcao" class="screen">
+  <div class="grid2">
+    <div>
+      <div class="card">
+        <div class="card-title">Cadastro do paciente</div>
+        <div style="margin-bottom:12px"><label>Nome completo</label><input type="text" id="rec-nome" placeholder="Ex: João Silva" /></div>
+        <div class="grid2" style="margin-bottom:12px">
+          <div><label>Data de nascimento</label><input type="text" id="rec-nasc" placeholder="DD/MM/AAAA" /></div>
+          <div><label>Telefone</label><input type="text" id="rec-tel" placeholder="(XX) XXXXX-XXXX" /></div>
+        </div>
+        <div style="margin-bottom:12px"><label>Especialidade</label><select id="rec-esp"></select></div>
+        <div style="margin-bottom:16px"><label>Médico / Consultório</label><select id="rec-med"></select></div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-primary" onclick="gerarAtendimento()" style="flex:1">Gerar QR Code + pulseira</button>
+          <button class="btn btn-outline" onclick="limparForm()">Limpar</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Fila atual</div>
+        <div id="n-rec" class="notify"></div>
+        <div class="table-wrap">
+          <table class="qt"><thead><tr><th>N°</th><th>Paciente</th><th>Especialidade</th><th>Status</th></tr></thead><tbody id="fila-tbody"></tbody></table>
+        </div>
+        <div id="fila-empty" style="text-align:center;padding:20px;font-size:13px;color:var(--text2)">Nenhum paciente cadastrado</div>
+      </div>
+    </div>
+    <div>
+      <div class="card">
+        <div class="card-title">Pulseira / Comprovante</div>
+        <div id="ticket-area" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px;background:var(--surface2);border-radius:var(--radius-sm);border:1px dashed var(--border2)">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="1.5" style="margin-bottom:10px"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 7h3v3H7zM14 7h3v3h-3zM7 14h3v3H7zM14 14h2M14 17h3"/></svg>
+          <div style="font-size:13px;color:var(--text2);text-align:center">Cadastre um paciente para gerar a pulseira</div>
+        </div>
+        <div id="ticket-actions" style="margin-top:12px;display:none">
+          <button class="btn btn-primary" onclick="imprimirPulseira()" style="width:100%">Imprimir pulseira (PDF)</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TV -->
+<div id="s-sala-espera" class="screen">
+  <div class="tv">
+    <div class="tv-head">
+      <div>
+        <div style="font-size:12px;color:rgba(255,255,255,.7);margin-bottom:3px">Hospital Municipal</div>
+        <div style="font-size:20px;font-weight:600">Painel de Atendimento</div>
+      </div>
+      <div style="font-size:30px;font-weight:600;font-variant-numeric:tabular-nums" id="tv-clock">--:--:--</div>
+    </div>
+    <div class="tv-cur">
+      <div style="font-size:12px;color:#888;margin-bottom:10px;text-transform:uppercase;letter-spacing:1px">Chamando agora</div>
+      <div style="font-size:42px;font-weight:700" id="tv-nome-atual">Aguardando...</div>
+      <div style="font-size:20px;color:#378ADD;margin-top:4px" id="tv-num-atual"></div>
+      <div style="font-size:14px;color:#888;margin-top:5px" id="tv-med-atual"></div>
+    </div>
+    <div class="tv-q">
+      <div style="font-size:12px;color:#555;margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px">Próximos na fila</div>
+      <div id="tv-lista"></div>
+    </div>
+  </div>
+  <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
+    <button class="btn btn-outline btn-sm" onclick="testarAudio()">Testar anúncio por áudio</button>
+    <span style="font-size:12px;color:var(--text2)">Áudio ativado automaticamente ao chamar o próximo paciente</span>
+  </div>
+</div>
+
+<!-- CONSULTÓRIO -->
+<div id="s-consultorio" class="screen">
+  <div class="consul-grid" id="consul-grid"></div>
+  <div class="grid2">
+    <div>
+      <div class="card">
+        <div class="card-title">Scanner de pulseira</div>
+        <div class="scan-bar" id="scan-bar"><div class="dot" id="scan-dot"></div><span id="scan-txt">Pronto — aguardando leitura do QR Code</span></div>
+        <div id="n-consul" class="notify"></div>
+        <div style="margin-bottom:14px">
+          <label>Simular scan / digitar código</label>
+          <div style="display:flex;gap:8px">
+            <input type="text" id="scan-input" placeholder="Pistola ou digitar aqui..." style="flex:1" onkeydown="if(event.key==='Enter')processarScan()" />
+            <button class="btn btn-primary" onclick="processarScan()">Scan</button>
+          </div>
+        </div>
+        <div id="pac-card" style="display:none">
+          <div style="padding:14px;background:var(--surface2);border-radius:var(--radius-sm);border:1px solid var(--border)">
+            <div style="font-size:11px;color:var(--text2);margin-bottom:3px;font-weight:600;text-transform:uppercase;letter-spacing:.4px">Em atendimento</div>
+            <div style="font-size:18px;font-weight:600" id="pc-nome">—</div>
+            <div style="font-size:12px;color:var(--text2);margin-top:3px" id="pc-esp">—</div>
+            <div style="font-size:12px;color:var(--text2);margin-top:1px" id="pc-num">—</div>
+          </div>
+          <div style="margin-top:12px">
+            <label style="font-weight:600;font-size:12px;margin-bottom:6px">Observações / Diagnóstico</label>
+            <textarea id="obs-input" placeholder="Diagnóstico, prescrição, anotações clínicas..."></textarea>
+            <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+              <button class="btn btn-outline btn-sm" onclick="salvarObs()">Salvar observação</button>
+              <span id="obs-ok" style="font-size:12px;color:var(--green);display:none;font-weight:500">&#10003; Salvo</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="card">
+        <div class="card-title">Timer do atendimento</div>
+        <div style="display:flex;flex-direction:column;align-items:center;padding:24px 0 16px">
+          <div class="timer-big" id="timer-display">00:00</div>
+          <div class="prog-wrap" style="max-width:300px;width:100%"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div>
+          <div style="font-size:12px;color:var(--text2);margin-top:8px" id="timer-meta">Tempo sugerido: 10 minutos</div>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+          <button class="btn btn-success" id="btn-ini" onclick="iniciarTimer()">Iniciar atendimento</button>
+          <button class="btn btn-danger" id="btn-enc" onclick="encerrarAtendimento()" style="display:none">Encerrar atendimento</button>
+        </div>
+        <div id="timer-status" style="text-align:center;font-size:12px;color:var(--text2);margin-top:12px">Aguardando scan da pulseira</div>
+      </div>
+      <div class="card">
+        <div class="card-title">Histórico de hoje</div>
+        <div class="table-wrap">
+          <table class="qt"><thead><tr><th>N°</th><th>Paciente</th><th>Duração</th><th>Observação</th></tr></thead><tbody id="hist-tbody"></tbody></table>
+        </div>
+        <div id="hist-empty" style="text-align:center;padding:18px;font-size:13px;color:var(--text2)">Nenhum atendimento encerrado</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN -->
+<div id="s-admin" class="screen">
+  <div class="grid4" style="margin-bottom:16px">
+    <div class="metric"><div class="metric-label">Total hoje</div><div class="metric-value" id="adm-total">0</div></div>
+    <div class="metric"><div class="metric-label">Em espera</div><div class="metric-value" id="adm-espera">0</div></div>
+    <div class="metric"><div class="metric-label">Finalizados</div><div class="metric-value" id="adm-enc">0</div></div>
+    <div class="metric"><div class="metric-label">Tempo médio</div><div class="metric-value" id="adm-media">—</div></div>
+  </div>
+  <div class="grid2">
+    <div>
+      <div class="card">
+        <div class="card-title">
+          <span>Médicos e consultórios</span>
+          <button class="btn btn-primary btn-sm" onclick="abrirModalMedico()">+ Adicionar</button>
+        </div>
+        <div class="table-wrap">
+          <table class="qt"><thead><tr><th>Nome</th><th>Especialidade</th><th>Consul.</th><th>Status</th><th></th></tr></thead><tbody id="medicos-tbody"></tbody></table>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Especialidades</div>
+        <div style="display:flex;gap:8px;margin-bottom:12px">
+          <input type="text" id="esp-input" placeholder="Nova especialidade..." style="flex:1" onkeydown="if(event.key==='Enter')addEspecialidade()" />
+          <button class="btn btn-primary btn-sm" onclick="addEspecialidade()">Adicionar</button>
+        </div>
+        <div id="esp-lista" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Senhas de acesso</div>
+        <div id="n-senha" class="notify"></div>
+        <table class="qt"><thead><tr><th>Perfil</th><th>Nova senha</th><th></th></tr></thead>
+        <tbody>
+          <tr><td>Recepção</td><td><input type="password" id="s-rec" placeholder="Nova senha..." style="width:130px" /></td><td><button class="btn btn-outline btn-sm" onclick="alterarSenha('recepcao','s-rec')">Salvar</button></td></tr>
+          <tr><td>Médico</td><td><input type="password" id="s-med" placeholder="Nova senha..." style="width:130px" /></td><td><button class="btn btn-outline btn-sm" onclick="alterarSenha('medico','s-med')">Salvar</button></td></tr>
+          <tr><td>Admin</td><td><input type="password" id="s-adm" placeholder="Nova senha..." style="width:130px" /></td><td><button class="btn btn-outline btn-sm" onclick="alterarSenha('admin','s-adm')">Salvar</button></td></tr>
+        </tbody></table>
+      </div>
+    </div>
+    <div>
+      <div class="card">
+        <div class="card-title">
+          <span>Todos os atendimentos</span>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-green btn-sm" onclick="exportarExcel()">&#8595; Excel</button>
+            <button class="btn btn-amber btn-sm" onclick="gerarPDF()">&#8595; PDF</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="qt"><thead><tr><th>N°</th><th>Paciente</th><th>Médico</th><th>Status</th><th>Dur.</th><th>Observação</th></tr></thead><tbody id="adm-tbody"></tbody></table>
+        </div>
+        <div id="adm-empty" style="text-align:center;padding:18px;font-size:13px;color:var(--text2)">Nenhum registro</div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- MODAL MÉDICO -->
+<div class="modal-bg" id="modal-medico">
+  <div class="modal">
+    <div style="font-size:16px;font-weight:600;margin-bottom:18px">Adicionar médico</div>
+    <div style="margin-bottom:12px"><label>Nome completo</label><input type="text" id="m-nome" placeholder="Ex: Dra. Maria Santos" /></div>
+    <div style="margin-bottom:12px"><label>Especialidade</label><select id="m-esp"></select></div>
+    <div style="margin-bottom:18px"><label>Consultório nº</label><input type="number" id="m-consul" placeholder="Ex: 1" min="1" max="20" /></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-primary" onclick="salvarMedico()" style="flex:1">Salvar</button>
+      <button class="btn btn-outline" onclick="fecharModal('modal-medico')">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+// ── ESTADO ─────────────────────────────────────────────
+let fila=[], contador=0, historico=[], timerInterval=null, segundos=0;
+let pacienteAtual=null, timerRodando=false, perfilAtual=null;
+let scanBuffer='', scanTimeout=null, consulAtual=null;
+let senhas={recepcao:'1234', medico:'5678', admin:'9999'};
+let especialidades=['Clínica geral','Cardiologia','Ortopedia','Pediatria','Ginecologia','Dermatologia'];
+let medicos=[
+  {id:1,nome:'Dr. Carlos Mendes',esp:'Cardiologia',consul:1,ativo:true},
+  {id:2,nome:'Dra. Ana Lima',esp:'Pediatria',consul:2,ativo:true},
+  {id:3,nome:'Dr. Roberto Souza',esp:'Clínica geral',consul:3,ativo:true}
+];
+let proxMedId=4;
+
+// ── LOGIN ───────────────────────────────────────────────
+function toggleSenhaField(){
+  document.getElementById('senha-wrap').style.display=
+    document.getElementById('login-perfil').value==='tv'?'none':'block';
+}
+
+function fazerLogin(){
+  const perfil=document.getElementById('login-perfil').value;
+  const senha=document.getElementById('login-senha').value;
+  if(perfil!=='tv'&&senha!==senhas[perfil]){
+    mostrarNotify('login-notify','Senha incorreta. Tente novamente.','n-warn'); return;
+  }
+  entrar(perfil);
+}
+
+function entrar(perfil){
+  perfilAtual=perfil;
+  document.getElementById('login-modal').classList.remove('show');
+  document.getElementById('main-app').style.display='block';
+  const labels={recepcao:'Recepcionista',medico:'Médico',admin:'Administrador',tv:'Painel TV'};
+  document.getElementById('user-label').textContent=labels[perfil]||perfil;
+  const nb=id=>document.getElementById('nb-'+id);
+  nb('sala-espera').style.display='';
+  if(perfil==='recepcao'){ nb('recepcao').style.display=''; nb('recepcao').click(); }
+  else if(perfil==='medico'){ nb('consultorio').style.display=''; nb('consultorio').click(); }
+  else if(perfil==='admin'){ nb('recepcao').style.display=''; nb('consultorio').style.display=''; nb('admin').style.display=''; nb('admin').click(); atualizarAdmin(); }
+  else if(perfil==='tv'){ document.getElementById('nb-sala-espera').click(); }
+  popularSelects(); renderConsultorios();
+}
+
+function sair(){
+  perfilAtual=null;
+  document.getElementById('main-app').style.display='none';
+  document.getElementById('login-modal').classList.add('show');
+  document.getElementById('login-senha').value='';
+  ['nb-recepcao','nb-consultorio','nb-admin'].forEach(id=>{ document.getElementById(id).style.display='none'; });
+}
+
+function alterarSenha(perfil,inputId){
+  const nova=document.getElementById(inputId).value.trim();
+  if(!nova||nova.length<3){ mostrarNotify('n-senha','Senha deve ter ao menos 3 caracteres.','n-warn'); return; }
+  senhas[perfil]=nova; document.getElementById(inputId).value='';
+  mostrarNotify('n-senha','Senha do perfil "'+perfil+'" alterada com sucesso!','n-ok');
+}
+
+// ── NAVEGAÇÃO ───────────────────────────────────────────
+function showScreen(s,btn){
+  document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(x=>x.classList.remove('active'));
+  const el=document.getElementById('s-'+s);
+  if(el) el.classList.add('active');
+  if(btn) btn.classList.add('active');
+  if(s==='admin') atualizarAdmin();
+  if(s==='consultorio') setTimeout(()=>{ const el=document.getElementById('scan-input'); if(el) el.focus(); },100);
+}
+
+// ── SELECTS ─────────────────────────────────────────────
+function popularSelects(){
+  const s1=document.getElementById('rec-esp');
+  if(s1){ s1.innerHTML=''; especialidades.forEach(e=>{ const o=document.createElement('option'); o.textContent=e; s1.appendChild(o); }); }
+  const s2=document.getElementById('rec-med');
+  if(s2){ s2.innerHTML=''; medicos.filter(m=>m.ativo).forEach(m=>{ const o=document.createElement('option'); o.value=m.id; o.textContent=m.nome+' (Consul. '+m.consul+')'; s2.appendChild(o); }); }
+  const s3=document.getElementById('m-esp');
+  if(s3){ s3.innerHTML=''; especialidades.forEach(e=>{ const o=document.createElement('option'); o.textContent=e; s3.appendChild(o); }); }
+  renderEspecialidades(); renderMedicos();
+}
+
+function renderEspecialidades(){
+  const el=document.getElementById('esp-lista'); if(!el) return;
+  el.innerHTML=''; especialidades.forEach((e,i)=>{
+    const span=document.createElement('span');
+    span.style.cssText='background:var(--surface2);border:1px solid var(--border);border-radius:99px;padding:4px 10px;font-size:12px;display:inline-flex;align-items:center;gap:6px';
+    span.innerHTML=e+' <span style="cursor:pointer;color:var(--text2);font-size:14px;line-height:1" onclick="remEsp('+i+')">×</span>';
+    el.appendChild(span);
+  });
+}
+
+function addEspecialidade(){
+  const v=document.getElementById('esp-input').value.trim();
+  if(!v||especialidades.includes(v)) return;
+  especialidades.push(v); document.getElementById('esp-input').value=''; popularSelects();
+}
+function remEsp(i){ especialidades.splice(i,1); popularSelects(); }
+
+function renderMedicos(){
+  const tb=document.getElementById('medicos-tbody'); if(!tb) return; tb.innerHTML='';
+  medicos.forEach(m=>{
+    const ativo=m.ativo?'<span class="badge badge-attending">Ativo</span>':'<span class="badge" style="background:#f0f0f0;color:#888">Inativo</span>';
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${m.nome}</td><td>${m.esp}</td><td>Nº ${m.consul}</td><td>${ativo}</td><td><button class="btn btn-outline btn-sm" onclick="toggleMedico(${m.id})">${m.ativo?'Desativar':'Ativar'}</button></td>`;
+    tb.appendChild(tr);
+  });
+}
+
+function toggleMedico(id){ const m=medicos.find(x=>x.id===id); if(m){ m.ativo=!m.ativo; renderMedicos(); popularSelects(); renderConsultorios(); } }
+function abrirModalMedico(){ document.getElementById('modal-medico').classList.add('show'); popularSelects(); }
+function fecharModal(id){ document.getElementById(id).classList.remove('show'); }
+
+function salvarMedico(){
+  const nome=document.getElementById('m-nome').value.trim();
+  const esp=document.getElementById('m-esp').value;
+  const consul=parseInt(document.getElementById('m-consul').value)||1;
+  if(!nome) return;
+  medicos.push({id:proxMedId++,nome,esp,consul,ativo:true});
+  document.getElementById('m-nome').value=''; document.getElementById('m-consul').value='';
+  fecharModal('modal-medico'); popularSelects(); renderConsultorios();
+}
+
+// ── CONSULTÓRIOS ─────────────────────────────────────────
+function renderConsultorios(){
+  const grid=document.getElementById('consul-grid'); if(!grid) return; grid.innerHTML='';
+  const nums=[...new Set(medicos.map(m=>m.consul))].sort((a,b)=>a-b);
+  nums.forEach(n=>{
+    const med=medicos.find(m=>m.consul===n&&m.ativo);
+    const emAtend=fila.find(p=>p.status==='atendendo'&&p.consulNum===n);
+    const statusClass=emAtend?'cs-busy':med?'cs-free':'cs-off';
+    const statusTxt=emAtend?'Em atendimento':med?'Disponível':'Sem médico';
+    const isAtual=consulAtual===n;
+    const card=document.createElement('div');
+    card.className='consul-card'+(isAtual?' active-c':'');
+    card.innerHTML=`<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px"><span class="consul-status ${statusClass}"></span><span style="font-size:14px;font-weight:600">Consultório ${n}</span></div><div style="font-size:13px;color:var(--text)">${med?med.nome:'—'}</div><div style="font-size:12px;color:var(--text2);margin-top:2px">${med?med.esp:'—'}</div><div style="font-size:11px;margin-top:8px;font-weight:500;color:${emAtend?'var(--green)':'var(--text2)'}">${statusTxt}</div>`;
+    card.onclick=()=>{ consulAtual=n; renderConsultorios(); mostrarNotify('n-consul','Consultório '+n+' selecionado.','n-info'); };
+    grid.appendChild(card);
+  });
+}
+
+// ── SCANNER GLOBAL (pistola HID) ─────────────────────────
+document.addEventListener('keydown',function(e){
+  if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
+  if(e.key==='Enter'){
+    if(scanBuffer.length>3){ document.getElementById('scan-input').value=scanBuffer; processarScan(); }
+    scanBuffer=''; if(scanTimeout) clearTimeout(scanTimeout); return;
+  }
+  if(e.key.length===1){ scanBuffer+=e.key; if(scanTimeout) clearTimeout(scanTimeout); scanTimeout=setTimeout(()=>{ scanBuffer=''; },300); }
+});
+
+// ── ÁUDIO BIP ────────────────────────────────────────────
+function bipSom(tipo){
+  try{
+    const ctx=new(window.AudioContext||window.webkitAudioContext)();
+    const o=ctx.createOscillator(),g=ctx.createGain();
+    o.connect(g); g.connect(ctx.destination);
+    if(tipo==='ok'){ o.frequency.value=880; g.gain.setValueAtTime(.28,ctx.currentTime); g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+.12); o.start(); o.stop(ctx.currentTime+.12); }
+    else if(tipo==='erro'){ o.frequency.value=200; g.gain.setValueAtTime(.28,ctx.currentTime); g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+.38); o.start(); o.stop(ctx.currentTime+.38); }
+    else if(tipo==='fim'){ const o2=ctx.createOscillator(); o2.connect(g); o.frequency.value=660; o2.frequency.value=880; g.gain.setValueAtTime(.22,ctx.currentTime); g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+.4); o.start(); o.stop(ctx.currentTime+.22); o2.start(ctx.currentTime+.18); o2.stop(ctx.currentTime+.4); }
+    else if(tipo==='alerta'){ o.frequency.value=440; o.frequency.setValueAtTime(440,ctx.currentTime); o.frequency.setValueAtTime(330,ctx.currentTime+.15); g.gain.setValueAtTime(.18,ctx.currentTime); g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+.45); o.start(); o.stop(ctx.currentTime+.45); }
+  }catch(e){}
+  const ind=document.getElementById('bip-ind');
+  if(ind){ ind.classList.add('show'); setTimeout(()=>ind.classList.remove('show'),1200); }
+}
+
+// ── SCAN / ATENDIMENTO ───────────────────────────────────
+function processarScan(){
+  const val=document.getElementById('scan-input').value.trim(); if(!val) return;
+  const pac=fila.find(p=>p.id===val);
+  if(!pac){ bipSom('erro'); mostrarNotify('n-consul','QR Code não reconhecido.','n-warn'); document.getElementById('scan-input').value=''; return; }
+  if(pac.status==='finalizado'){ bipSom('erro'); mostrarNotify('n-consul',pac.nome+' já foi atendido.','n-warn'); document.getElementById('scan-input').value=''; return; }
+  if(timerRodando&&pacienteAtual&&pacienteAtual.id===val){ bipSom('fim'); encerrarAtendimento(); document.getElementById('scan-input').value=''; return; }
+  if(timerRodando){ bipSom('erro'); mostrarNotify('n-consul','Encerre o atendimento atual primeiro.','n-warn'); document.getElementById('scan-input').value=''; return; }
+  bipSom('ok');
+  pac.status='atendendo'; pac.consulNum=consulAtual; pacienteAtual=pac;
+  document.getElementById('pc-nome').textContent=pac.nome;
+  document.getElementById('pc-esp').textContent=pac.esp;
+  document.getElementById('pc-num').textContent='N° '+pac.num+' · '+pac.med+' · Chegada: '+pac.hora;
+  document.getElementById('pac-card').style.display='block';
+  document.getElementById('obs-input').value=''; document.getElementById('obs-ok').style.display='none';
+  document.getElementById('scan-dot').className='dot red';
+  document.getElementById('scan-txt').textContent='Em atendimento: '+pac.nome;
+  document.getElementById('scan-input').value='';
+  atualizarFila(); atualizarTV(); renderConsultorios();
+  mostrarNotify('n-consul','Paciente '+pac.nome+' (N° '+pac.num+') — atendimento iniciado','n-ok');
+  iniciarTimer();
+}
+
+function iniciarTimer(){
+  if(timerRodando) return;
+  timerRodando=true; segundos=0;
+  document.getElementById('btn-ini').style.display='none';
+  document.getElementById('btn-enc').style.display='inline-block';
+  document.getElementById('timer-status').textContent='Em andamento — escaneie novamente para encerrar';
+  if(timerInterval) clearInterval(timerInterval);
+  timerInterval=setInterval(()=>{
+    segundos++;
+    const m=Math.floor(segundos/60),s=segundos%60;
+    const d=document.getElementById('timer-display');
+    d.textContent=String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+    const pct=Math.min((segundos/600)*100,100);
+    document.getElementById('prog-fill').style.width=pct+'%';
+    if(pct<70){d.className='timer-big';document.getElementById('prog-fill').style.background='var(--blue)';}
+    else if(pct<90){d.className='timer-big warn';document.getElementById('prog-fill').style.background='#BA7517';}
+    else{d.className='timer-big danger';document.getElementById('prog-fill').style.background='var(--red)';}
+    if(segundos===540){bipSom('alerta');mostrarNotify('n-consul','Atenção: 1 minuto restante do tempo sugerido.','n-warn');}
+    if(segundos===600) bipSom('alerta');
+  },1000);
+}
+
+function salvarObs(){
+  if(!pacienteAtual) return;
+  pacienteAtual.obs=document.getElementById('obs-input').value;
+  document.getElementById('obs-ok').style.display='inline';
+  setTimeout(()=>document.getElementById('obs-ok').style.display='none',2500);
+}
+
+function encerrarAtendimento(){
+  if(!timerRodando||!pacienteAtual) return;
+  clearInterval(timerInterval); timerRodando=false;
+  const m=Math.floor(segundos/60),s=segundos%60;
+  const dur=String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+  pacienteAtual.obs=document.getElementById('obs-input').value||'';
+  pacienteAtual.status='finalizado'; pacienteAtual.duracao=dur;
+  pacienteAtual.fim=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  historico.push({...pacienteAtual});
+  document.getElementById('timer-display').textContent='00:00';
+  document.getElementById('timer-display').className='timer-big';
+  document.getElementById('prog-fill').style.width='0%'; document.getElementById('prog-fill').style.background='var(--blue)';
+  document.getElementById('btn-ini').style.display='inline-block'; document.getElementById('btn-enc').style.display='none';
+  document.getElementById('pac-card').style.display='none';
+  document.getElementById('scan-dot').className='dot'; document.getElementById('scan-txt').textContent='Pronto — aguardando leitura do QR Code';
+  document.getElementById('timer-status').textContent='Encerrado — aguardando próximo scan';
+  mostrarNotify('n-consul','Atendimento de '+pacienteAtual.nome+' encerrado. Duração: '+dur,'n-ok');
+  atualizarHistorico(); atualizarFila(); renderConsultorios();
+  const prox=fila.find(p=>p.status==='aguardando');
+  if(prox) chamarProximo(prox); else atualizarTV();
+  pacienteAtual=null;
+}
+
+function chamarProximo(p){ atualizarTV(); anunciarAudio(p.nome,p.num,p.med); }
+
+function anunciarAudio(nome,num,med){
+  if(!window.speechSynthesis) return;
+  const u=new SpeechSynthesisUtterance('Atenção. Número '+num+'. '+nome+'. Por favor dirija-se ao consultório. '+med+' está pronto para atendê-lo.');
+  u.lang='pt-BR'; u.rate=0.88; window.speechSynthesis.cancel(); window.speechSynthesis.speak(u);
+}
+
+function testarAudio(){
+  const p=fila.find(p=>p.status==='aguardando');
+  if(p) anunciarAudio(p.nome,p.num,p.med); else anunciarAudio('Maria da Silva','001','Dr. Carlos Mendes');
+}
+
+// ── RECEPÇÃO ─────────────────────────────────────────────
+function gerarAtendimento(){
+  const nome=document.getElementById('rec-nome').value.trim();
+  if(!nome){mostrarNotify('n-rec','Informe o nome do paciente.','n-warn');return;}
+  contador++;
+  const num=String(contador).padStart(3,'0');
+  // ID curto: P + número + 4 chars aleatórios — fácil de ler pela pistola
+  const rand=Math.random().toString(36).substring(2,6).toUpperCase();
+  const id='P'+num+rand;
+  const esp=document.getElementById('rec-esp').value;
+  const medSel=document.getElementById('rec-med');
+  const medId=parseInt(medSel.value);
+  const medObj=medicos.find(m=>m.id===medId);
+  const med=medObj?medObj.nome:'—', consulNum=medObj?medObj.consul:null;
+  const hora=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  const p={id,num,nome,esp,med,consulNum,hora,status:'aguardando',duracao:null,fim:null,obs:''};
+  fila.push(p); atualizarFila(); atualizarTV(); gerarTicket(p);
+  mostrarNotify('n-rec','✓ Pulseira gerada — N° '+num+' · Código: '+id,'n-ok');
+  document.getElementById('rec-nome').value='';
+}
+
+function gerarTicket(p){
+  const area=document.getElementById('ticket-area'); area.innerHTML='';
+  const t=document.createElement('div'); t.className='ticket-print'; t.id='ticket-print';
+  t.innerHTML=`
+    <div style="font-size:10px;color:#888;text-align:center;margin-bottom:10px;text-transform:uppercase;letter-spacing:1px">Hospital Municipal</div>
+    <div style="font-size:36px;font-weight:700;text-align:center;color:#185FA5;letter-spacing:-1px">${p.num}</div>
+    <div style="height:1px;background:#eee;margin:12px 0"></div>
+    <div style="font-size:16px;font-weight:600;text-align:center;margin-bottom:3px">${p.nome}</div>
+    <div style="font-size:12px;color:#666;text-align:center;margin-bottom:14px">${p.esp} · ${p.med}</div>
+    <svg id="qr-${p.id}" style="width:100%;max-width:240px;display:block;margin:0 auto 10px"></svg>
+    <div style="font-size:14px;font-weight:700;text-align:center;color:#333;letter-spacing:2px;margin-bottom:2px">${p.id}</div>
+    <div style="font-size:10px;color:#bbb;text-align:center;margin-top:4px">Gerado às ${p.hora} · Apresente na consulta</div>`;
+  area.appendChild(t); document.getElementById('ticket-actions').style.display='block';
+  setTimeout(()=>{
+    try{
+      JsBarcode('#qr-'+p.id, p.id, {
+        format:'CODE128', width:2.8, height:80,
+        displayValue:true, fontSize:14, margin:8,
+        background:'#ffffff', lineColor:'#000000'
+      });
+    }catch(e){ console.error('Barcode error:',e); }
+  },150);
+}
+
+function imprimirPulseira(){
+  const el=document.getElementById('ticket-print'); if(!el) return;
+  const w=window.open('','_blank');
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Pulseira</title><style>body{font-family:system-ui;display:flex;justify-content:center;padding:20px;background:#fff}.ticket-print{background:#fff;border-radius:12px;border:2px dashed #ccc;padding:22px;max-width:340px;color:#111}svg{display:block;width:100% !important;height:auto !important}@media print{body{padding:0}@page{size:A6;margin:8mm}}</style></head><body>${el.outerHTML}</body></html>`);
+  w.document.close(); setTimeout(()=>w.print(),600);
+}
+
+function limparForm(){ ['rec-nome','rec-nasc','rec-tel'].forEach(id=>{ document.getElementById(id).value=''; }); }
+
+// ── TABELAS ──────────────────────────────────────────────
+function atualizarFila(){
+  const tb=document.getElementById('fila-tbody'); tb.innerHTML='';
+  const empty=document.getElementById('fila-empty');
+  if(!fila.length){empty.style.display='block';return;} empty.style.display='none';
+  fila.forEach(p=>{
+    const b=p.status==='aguardando'?'badge-waiting':p.status==='atendendo'?'badge-attending':'badge-done';
+    const l=p.status==='aguardando'?'Aguardando':p.status==='atendendo'?'Em atendimento':'Finalizado';
+    tb.innerHTML+=`<tr><td><strong>${p.num}</strong></td><td>${p.nome}</td><td>${p.esp}</td><td><span class="badge ${b}">${l}</span></td></tr>`;
+  });
+}
+
+function atualizarTV(){
+  const emEspera=fila.filter(p=>p.status==='aguardando');
+  const atual=fila.find(p=>p.status==='atendendo');
+  document.getElementById('tv-nome-atual').textContent=atual?atual.nome:'Aguardando...';
+  document.getElementById('tv-num-atual').textContent=atual?'N° '+atual.num:'';
+  document.getElementById('tv-med-atual').textContent=atual?atual.med+' · '+atual.esp:'';
+  const lista=document.getElementById('tv-lista'); lista.innerHTML='';
+  emEspera.slice(0,5).forEach(p=>{ lista.innerHTML+=`<div class="tv-qi"><div style="font-size:20px;font-weight:600;color:#378ADD;min-width:48px">${p.num}</div><div style="font-size:15px;color:#ccc">${p.nome}</div><div style="margin-left:auto;font-size:12px;color:#555">${p.esp}</div></div>`; });
+  if(!emEspera.length&&!atual) lista.innerHTML='<div style="color:#555;font-size:14px;padding:12px 0">Fila vazia</div>';
+}
+
+function atualizarHistorico(){
+  const tb=document.getElementById('hist-tbody'); tb.innerHTML='';
+  const empty=document.getElementById('hist-empty');
+  if(!historico.length){empty.style.display='block';return;} empty.style.display='none';
+  historico.forEach(p=>{ const obs=p.obs?(p.obs.length>40?p.obs.substring(0,40)+'...':p.obs):'—'; tb.innerHTML+=`<tr><td><strong>${p.num}</strong></td><td>${p.nome}</td><td>${p.duracao||'—'}</td><td style="font-size:12px;color:var(--text2)">${obs}</td></tr>`; });
+}
+
+function atualizarAdmin(){
+  const total=fila.length,espera=fila.filter(p=>p.status==='aguardando').length,enc=historico.length;
+  document.getElementById('adm-total').textContent=total;
+  document.getElementById('adm-espera').textContent=espera;
+  document.getElementById('adm-enc').textContent=enc;
+  if(historico.length){
+    const tot=historico.reduce((a,p)=>{ if(!p.duracao)return a; const[mm,ss]=p.duracao.split(':').map(Number); return a+mm*60+ss; },0);
+    const avg=Math.round(tot/historico.length);
+    document.getElementById('adm-media').textContent=Math.floor(avg/60)+':'+String(avg%60).padStart(2,'0');
+  } else document.getElementById('adm-media').textContent='—';
+  const tb=document.getElementById('adm-tbody'); tb.innerHTML='';
+  const empty=document.getElementById('adm-empty');
+  if(!fila.length){empty.style.display='block';return;} empty.style.display='none';
+  fila.forEach(p=>{
+    const b=p.status==='aguardando'?'badge-waiting':p.status==='atendendo'?'badge-attending':'badge-done';
+    const l=p.status==='aguardando'?'Aguardando':p.status==='atendendo'?'Em atendimento':'Finalizado';
+    const obs=p.obs?(p.obs.length>40?p.obs.substring(0,40)+'...':p.obs):'—';
+    tb.innerHTML+=`<tr><td><strong>${p.num}</strong></td><td>${p.nome}</td><td>${p.med}</td><td><span class="badge ${b}">${l}</span></td><td>${p.duracao||'—'}</td><td style="font-size:12px">${obs}</td></tr>`;
+  });
+  renderMedicos();
+}
+
+// ── EXPORTAR EXCEL ───────────────────────────────────────
+function exportarExcel(){
+  if(!window.XLSX){alert('Biblioteca Excel não carregada. Verifique a conexão.');return;}
+  const data=new Date().toLocaleDateString('pt-BR');
+  const rows=[['N°','Paciente','Médico','Especialidade','Consultório','Status','Chegada','Encerrado','Duração','Observação']];
+  fila.forEach(p=>{
+    const status=p.status==='aguardando'?'Aguardando':p.status==='atendendo'?'Em atendimento':'Finalizado';
+    rows.push([p.num,p.nome,p.med,p.esp,p.consulNum?'Nº '+p.consulNum:'—',status,p.hora,p.fim||'—',p.duracao||'—',p.obs||'—']);
+  });
+  const ws=XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols']=[{wch:6},{wch:24},{wch:24},{wch:18},{wch:12},{wch:16},{wch:10},{wch:10},{wch:10},{wch:44}];
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Atendimentos');
+  XLSX.writeFile(wb,'relatorio_'+data.replace(/\//g,'-')+'.xlsx');
+}
+
+// ── EXPORTAR PDF ─────────────────────────────────────────
+function gerarPDF(){
+  const data=new Date().toLocaleDateString('pt-BR'),hora=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  const total=fila.length,enc=historico.length,espera=fila.filter(p=>p.status==='aguardando').length;
+  let media='—';
+  if(historico.length){ const tot=historico.reduce((a,p)=>{ if(!p.duracao)return a; const[mm,ss]=p.duracao.split(':').map(Number); return a+mm*60+ss; },0); const avg=Math.round(tot/historico.length); media=Math.floor(avg/60)+'min '+String(avg%60).padStart(2,'0')+'s'; }
+  let linhas='';
+  fila.forEach(p=>{
+    const st=p.status==='aguardando'?'Aguardando':p.status==='atendendo'?'Em atendimento':'Finalizado';
+    const cor=p.status==='aguardando'?'#854F0B':p.status==='atendendo'?'#3B6D11':'#185FA5';
+    const bg=p.status==='aguardando'?'#FAEEDA':p.status==='atendendo'?'#EAF3DE':'#E6F1FB';
+    linhas+=`<tr><td>${p.num}</td><td>${p.nome}</td><td>${p.med}</td><td>${p.esp}</td><td><span style="background:${bg};color:${cor};padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600">${st}</span></td><td>${p.duracao||'—'}</td><td style="font-size:11px;color:#666">${p.obs||'—'}</td></tr>`;
+  });
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Relatório ${data}</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:system-ui;color:#111;padding:36px}h1{font-size:20px;font-weight:600;margin-bottom:3px}h2{font-size:13px;font-weight:400;color:#666;margin-bottom:24px}.met{display:flex;gap:12px;margin-bottom:24px}.m{background:#f5f5f5;border-radius:8px;padding:12px 18px;flex:1;border:1px solid #e5e5e5}.ml{font-size:11px;color:#888;margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px}.mv{font-size:24px;font-weight:600}table{width:100%;border-collapse:collapse}th{font-size:11px;color:#888;font-weight:600;text-align:left;padding:8px 10px;border-bottom:2px solid #eee;text-transform:uppercase;letter-spacing:.4px}td{font-size:12px;padding:9px 10px;border-bottom:1px solid #f0f0f0}tr:last-child td{border:none}.foot{margin-top:28px;font-size:10px;color:#bbb;text-align:center;border-top:1px solid #f0f0f0;padding-top:12px}@media print{body{padding:20px}}</style></head><body>
+  <h1>Hospital Municipal — Relatório Diário</h1><h2>${data} · Gerado às ${hora}</h2>
+  <div class="met"><div class="m"><div class="ml">Total</div><div class="mv">${total}</div></div><div class="m"><div class="ml">Finalizados</div><div class="mv">${enc}</div></div><div class="m"><div class="ml">Em espera</div><div class="mv">${espera}</div></div><div class="m"><div class="ml">Tempo médio</div><div class="mv">${media}</div></div></div>
+  <table><thead><tr><th>N°</th><th>Paciente</th><th>Médico</th><th>Especialidade</th><th>Status</th><th>Duração</th><th>Observação</th></tr></thead><tbody>${linhas}</tbody></table>
+  <div class="foot">Sistema de Atendimento Hospitalar · Hospital Municipal · ${data}</div></body></html>`;
+  const w=window.open('','_blank'); w.document.write(html); w.document.close(); setTimeout(()=>w.print(),500);
+}
+
+// ── NOTIFICAÇÕES ─────────────────────────────────────────
+function mostrarNotify(id,msg,cls){
+  const el=document.getElementById(id); if(!el) return;
+  el.textContent=msg; el.className='notify '+cls;
+  setTimeout(()=>{ el.style.display='none'; },5000);
+}
+
+// ── RELÓGIO TV ───────────────────────────────────────────
+setInterval(()=>{ const el=document.getElementById('tv-clock'); if(el) el.textContent=new Date().toLocaleTimeString('pt-BR'); },1000);
+
+// ── INIT ─────────────────────────────────────────────────
+popularSelects();
+</script>
+</body>
+</html>
