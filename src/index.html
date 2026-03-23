@@ -630,10 +630,12 @@ async function encerrarAtendimento(){
   clearInterval(timerInterval); timerRodando=false;
   const m=Math.floor(segundos/60),s=segundos%60;
   const dur=String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
-  pacienteAtual.obs=document.getElementById('obs-input').value||'';
-  pacienteAtual.status='finalizado'; pacienteAtual.duracao=dur;
-  pacienteAtual.fim=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
-  await db.from('fila').update({status:'finalizado',duracao:dur,fim:pacienteAtual.fim,obs:pacienteAtual.obs}).eq('id',pacienteAtual.id);
+  const obs=document.getElementById('obs-input').value||'';
+  const fim=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  pacienteAtual.obs=obs; pacienteAtual.status='finalizado';
+  pacienteAtual.duracao=dur; pacienteAtual.fim=fim;
+
+  // Atualiza UI e chama próximo imediatamente (sem esperar o banco)
   document.getElementById('timer-display').textContent='00:00';
   document.getElementById('timer-display').className='timer-big';
   document.getElementById('prog-fill').style.width='0%'; document.getElementById('prog-fill').style.background='var(--blue)';
@@ -645,7 +647,11 @@ async function encerrarAtendimento(){
   atualizarHistorico(); atualizarFila(); renderConsultorios();
   const prox=fila.find(p=>p.status==='aguardando');
   if(prox) chamarProximo(prox); else atualizarTV();
+
+  // Persiste no banco em background (não bloqueia a UI)
+  const pacId=pacienteAtual.id;
   pacienteAtual=null;
+  db.from('fila').update({status:'finalizado',duracao:dur,fim,obs}).eq('id',pacId);
 }
 
 function chamarProximo(p){ atualizarTV(); anunciarAudio(p.nome,p.num,p.med); }
