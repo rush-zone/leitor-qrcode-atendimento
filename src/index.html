@@ -250,6 +250,7 @@ textarea{resize:vertical;min-height:75px}
         <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
           <button class="btn btn-success" id="btn-ini" onclick="iniciarTimer()">Iniciar atendimento</button>
           <button class="btn btn-danger" id="btn-enc" onclick="encerrarAtendimento()" style="display:none">Encerrar atendimento</button>
+          <button class="btn btn-outline" id="btn-chamar" onclick="chamarNovamente()" title="Repetir chamada por áudio">&#128266; Chamar novamente</button>
         </div>
         <div id="timer-status" style="text-align:center;font-size:12px;color:var(--text2);margin-top:12px">Aguardando scan da pulseira</div>
       </div>
@@ -648,6 +649,13 @@ async function encerrarAtendimento(){
 }
 
 function chamarProximo(p){ atualizarTV(); anunciarAudio(p.nome,p.num,p.med); }
+
+function chamarNovamente(){
+  const prox=fila.find(p=>p.status==='aguardando');
+  if(!prox){ mostrarNotify('n-consul','Nenhum paciente aguardando na fila.','n-warn'); return; }
+  anunciarAudio(prox.nome,prox.num,prox.med);
+  mostrarNotify('n-consul','Chamando: '+prox.nome+' — N° '+prox.num,'n-info');
+}
 
 function anunciarAudio(nome,num,med){
   if(!window.speechSynthesis) return;
