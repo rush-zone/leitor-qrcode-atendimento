@@ -576,7 +576,8 @@ async function processarScan(){
   if(!pac){ bipSom('erro'); mostrarNotify('n-consul','QR Code não reconhecido.','n-warn'); document.getElementById('scan-input').value=''; return; }
   if(pac.status==='finalizado'){ bipSom('erro'); mostrarNotify('n-consul',pac.nome+' já foi atendido.','n-warn'); document.getElementById('scan-input').value=''; return; }
   if(timerRodando&&pacienteAtual&&pacienteAtual.id===val){ bipSom('fim'); encerrarAtendimento(); document.getElementById('scan-input').value=''; return; }
-  if(timerRodando){ bipSom('erro'); mostrarNotify('n-consul','Encerre o atendimento atual primeiro.','n-warn'); document.getElementById('scan-input').value=''; return; }
+  const emAtendimento=fila.find(p=>p.status==='atendendo');
+  if(emAtendimento){ bipSom('erro'); mostrarNotify('n-consul','Encerre o atendimento de '+emAtendimento.nome+' antes de iniciar outro.','n-warn'); document.getElementById('scan-input').value=''; return; }
   bipSom('ok');
   pac.status='atendendo'; pac.consulNum=consulAtual; pacienteAtual=pac;
   await db.from('fila').update({status:'atendendo',consul_num:consulAtual}).eq('id',val);
