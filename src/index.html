@@ -544,6 +544,8 @@ function renderConsultorios(){
 // ── SCANNER GLOBAL (pistola HID) ─────────────────────────
 document.addEventListener('keydown',function(e){
   if(e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
+  const consulAtiva=document.getElementById('s-consultorio')?.classList.contains('active');
+  if(!consulAtiva) return;
   if(e.key==='Enter'){
     if(scanBuffer.length>3){ document.getElementById('scan-input').value=scanBuffer; processarScan(); }
     scanBuffer=''; if(scanTimeout) clearTimeout(scanTimeout); return;
