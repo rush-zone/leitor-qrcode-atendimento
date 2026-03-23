@@ -368,9 +368,9 @@ async function initDB(){
   // Especialidades
   const {data:esps}=await db.from('especialidades').select('*').order('nome');
   if(esps) especialidades=esps.map(e=>e.nome);
-  // Fila do dia
-  const hoje=new Date().toISOString().split('T')[0];
-  const {data:filaDia}=await db.from('fila').select('*').gte('created_at',hoje+'T00:00:00').order('created_at');
+  // Fila — carrega todos (sem filtro de data para evitar problema de fuso)
+  const {data:filaDia,error:filaErr}=await db.from('fila').select('*').in('status',['aguardando','atendendo']).order('created_at');
+  if(filaErr) console.error('Erro ao carregar fila:',filaErr);
   if(filaDia) fila=filaDia.map(mapPaciente);
   // Realtime
   db.channel('fila-live')
@@ -378,6 +378,7 @@ async function initDB(){
     .subscribe();
   mostrarLoading(false);
   popularSelects();
+  atualizarFila(); atualizarTV(); atualizarHistorico(); renderConsultorios();
 }
 
 function mostrarLoading(show){
@@ -664,9 +665,7 @@ async function gerarAtendimento(){
   if(!nome){mostrarNotify('n-rec','Informe o nome do paciente.','n-warn');return;}
   const nasc=document.getElementById('rec-nasc').value;
   const tel=document.getElementById('rec-tel').value;
-  const hoje=new Date().toISOString().split('T')[0];
-  const {count}=await db.from('fila').select('*',{count:'exact',head:true}).gte('created_at',hoje+'T00:00:00');
-  const num=String((count||0)+1).padStart(3,'0');
+  const num=String(fila.length+1).padStart(3,'0');
   const rand=Math.random().toString(36).substring(2,6).toUpperCase();
   const id='P'+num+rand;
   const esp=document.getElementById('rec-esp').value;
