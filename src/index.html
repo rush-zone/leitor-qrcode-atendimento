@@ -733,7 +733,7 @@ function imprimirPulseira(){
 function reimprimir(pacId){
   const p=fila.find(x=>x.id===pacId); if(!p) return;
   gerarTicket(p);
-  setTimeout(()=>imprimirPulseira(),400);
+  document.getElementById('ticket-actions').style.display='block';
 }
 
 function limparForm(){ ['rec-nome','rec-nasc','rec-tel'].forEach(id=>{ document.getElementById(id).value=''; }); }
@@ -746,7 +746,7 @@ function atualizarFila(){
   fila.forEach(p=>{
     const b=p.status==='aguardando'?'badge-waiting':p.status==='atendendo'?'badge-attending':'badge-done';
     const l=p.status==='aguardando'?'Aguardando':p.status==='atendendo'?'Em atendimento':'Finalizado';
-    const btnReprint=p.status!=='finalizado'?`<button class="btn btn-outline btn-sm" onclick="reimprimir('${p.id}')" title="Reimprimir pulseira">&#128438;</button>`:'';
+    const btnReprint=p.status!=='finalizado'?`<button class="btn btn-outline btn-sm" onclick="reimprimir('${p.id}')" title="Visualizar pulseira">&#128438; Ver</button>`:'';
     tb.innerHTML+=`<tr><td><strong>${p.num}</strong></td><td>${p.nome}</td><td>${p.esp}</td><td><span class="badge ${b}">${l}</span></td><td>${btnReprint}</td></tr>`;
   });
 }
