@@ -158,7 +158,7 @@ textarea{resize:vertical;min-height:75px}
         <div class="card-title">Fila atual</div>
         <div id="n-rec" class="notify"></div>
         <div class="table-wrap">
-          <table class="qt"><thead><tr><th>N°</th><th>Paciente</th><th>Especialidade</th><th>Status</th></tr></thead><tbody id="fila-tbody"></tbody></table>
+          <table class="qt"><thead><tr><th>N°</th><th>Paciente</th><th>Especialidade</th><th>Status</th><th></th></tr></thead><tbody id="fila-tbody"></tbody></table>
         </div>
         <div id="fila-empty" style="text-align:center;padding:20px;font-size:13px;color:var(--text2)">Nenhum paciente cadastrado</div>
       </div>
@@ -716,6 +716,12 @@ function imprimirPulseira(){
   w.document.close(); setTimeout(()=>w.print(),600);
 }
 
+function reimprimir(pacId){
+  const p=fila.find(x=>x.id===pacId); if(!p) return;
+  gerarTicket(p);
+  setTimeout(()=>imprimirPulseira(),400);
+}
+
 function limparForm(){ ['rec-nome','rec-nasc','rec-tel'].forEach(id=>{ document.getElementById(id).value=''; }); }
 
 // ── TABELAS ──────────────────────────────────────────────
@@ -726,7 +732,8 @@ function atualizarFila(){
   fila.forEach(p=>{
     const b=p.status==='aguardando'?'badge-waiting':p.status==='atendendo'?'badge-attending':'badge-done';
     const l=p.status==='aguardando'?'Aguardando':p.status==='atendendo'?'Em atendimento':'Finalizado';
-    tb.innerHTML+=`<tr><td><strong>${p.num}</strong></td><td>${p.nome}</td><td>${p.esp}</td><td><span class="badge ${b}">${l}</span></td></tr>`;
+    const btnReprint=p.status!=='finalizado'?`<button class="btn btn-outline btn-sm" onclick="reimprimir('${p.id}')" title="Reimprimir pulseira">&#128438;</button>`:'';
+    tb.innerHTML+=`<tr><td><strong>${p.num}</strong></td><td>${p.nome}</td><td>${p.esp}</td><td><span class="badge ${b}">${l}</span></td><td>${btnReprint}</td></tr>`;
   });
 }
 
