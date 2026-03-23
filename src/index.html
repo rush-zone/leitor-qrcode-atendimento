@@ -335,21 +335,78 @@ textarea{resize:vertical;min-height:75px}
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
-// ── ESTADO ─────────────────────────────────────────────
-let fila=[], contador=0, historico=[], timerInterval=null, segundos=0;
+// ── SUPABASE ─────────────────────────────────────────────
+const SUPA_URL='https://qkmoiegmelcprkfydmeu.supabase.co';
+const SUPA_KEY='sb_publishable_9imSsLXrwVyPLSVnpEyClw_Nx1zEZV4';
+const db=supabase.createClient(SUPA_URL,SUPA_KEY);
+
+// ── ESTADO (cache local) ──────────────────────────────────
+let fila=[], timerInterval=null, segundos=0;
 let pacienteAtual=null, timerRodando=false, perfilAtual=null;
 let scanBuffer='', scanTimeout=null, consulAtual=null;
-let senhas={recepcao:'1234', medico:'5678', admin:'9999'};
-let especialidades=['Clínica geral','Cardiologia','Ortopedia','Pediatria','Ginecologia','Dermatologia'];
-let medicos=[
-  {id:1,nome:'Dr. Carlos Mendes',esp:'Cardiologia',consul:1,ativo:true},
-  {id:2,nome:'Dra. Ana Lima',esp:'Pediatria',consul:2,ativo:true},
-  {id:3,nome:'Dr. Roberto Souza',esp:'Clínica geral',consul:3,ativo:true}
-];
-let proxMedId=4;
+let senhas={recepcao:'1234',medico:'5678',admin:'9999'};
+let especialidades=[], medicos=[];
+const historico=()=>fila.filter(p=>p.status==='finalizado');
+
+// ── INIT DB ───────────────────────────────────────────────
+async function initDB(){
+  mostrarLoading(true);
+  // Senhas
+  const {data:cfg}=await db.from('configuracoes').select('chave,valor');
+  if(cfg) cfg.forEach(c=>{
+    if(c.chave==='senha_recepcao') senhas.recepcao=c.valor;
+    if(c.chave==='senha_medico')   senhas.medico=c.valor;
+    if(c.chave==='senha_admin')    senhas.admin=c.valor;
+  });
+  // Médicos
+  const {data:meds}=await db.from('medicos').select('*').order('id');
+  if(meds) medicos=meds;
+  // Especialidades
+  const {data:esps}=await db.from('especialidades').select('*').order('nome');
+  if(esps) especialidades=esps.map(e=>e.nome);
+  // Fila do dia
+  const hoje=new Date().toISOString().split('T')[0];
+  const {data:filaDia}=await db.from('fila').select('*').gte('created_at',hoje+'T00:00:00').order('created_at');
+  if(filaDia) fila=filaDia.map(mapPaciente);
+  // Realtime
+  db.channel('fila-live')
+    .on('postgres_changes',{event:'*',schema:'public',table:'fila'},handleFilaChange)
+    .subscribe();
+  mostrarLoading(false);
+  popularSelects();
+}
+
+function mostrarLoading(show){
+  let el=document.getElementById('db-status');
+  if(!el){ el=document.createElement('div'); el.id='db-status';
+    el.style.cssText='position:fixed;bottom:14px;right:14px;background:#185FA5;color:#fff;font-size:12px;padding:7px 14px;border-radius:99px;z-index:9999;box-shadow:0 2px 8px rgba(0,0,0,.2)';
+    document.body.appendChild(el); }
+  if(show){ el.textContent='Conectando ao banco...'; el.style.display='block'; }
+  else { el.textContent='✓ Banco conectado'; setTimeout(()=>el.style.display='none',2000); }
+}
+
+function mapPaciente(p){
+  return {id:p.id,num:p.num,nome:p.nome,nasc:p.nasc||'',tel:p.tel||'',
+    esp:p.esp,med:p.med,medId:p.med_id,consulNum:p.consul_num,
+    hora:p.hora,status:p.status,obs:p.obs||'',duracao:p.duracao,fim:p.fim};
+}
+
+function handleFilaChange({eventType,new:novo,old:antigo}){
+  if(eventType==='INSERT'){
+    if(!fila.find(x=>x.id===novo.id)) fila.push(mapPaciente(novo));
+  } else if(eventType==='UPDATE'){
+    const idx=fila.findIndex(x=>x.id===novo.id);
+    if(idx>=0){ fila[idx]=mapPaciente(novo); if(pacienteAtual&&pacienteAtual.id===novo.id) pacienteAtual=fila[idx]; }
+  } else if(eventType==='DELETE'){
+    fila=fila.filter(x=>x.id!==antigo.id);
+  }
+  atualizarFila(); atualizarTV(); renderConsultorios(); atualizarHistorico();
+  if(perfilAtual==='admin') atualizarAdmin();
+}
 
 // ── LOGIN ───────────────────────────────────────────────
 function toggleSenhaField(){
@@ -389,9 +446,10 @@ function sair(){
   ['nb-recepcao','nb-consultorio','nb-admin'].forEach(id=>{ document.getElementById(id).style.display='none'; });
 }
 
-function alterarSenha(perfil,inputId){
+async function alterarSenha(perfil,inputId){
   const nova=document.getElementById(inputId).value.trim();
   if(!nova||nova.length<3){ mostrarNotify('n-senha','Senha deve ter ao menos 3 caracteres.','n-warn'); return; }
+  await db.from('configuracoes').upsert({chave:'senha_'+perfil,valor:nova});
   senhas[perfil]=nova; document.getElementById(inputId).value='';
   mostrarNotify('n-senha','Senha do perfil "'+perfil+'" alterada com sucesso!','n-ok');
 }
@@ -428,12 +486,17 @@ function renderEspecialidades(){
   });
 }
 
-function addEspecialidade(){
+async function addEspecialidade(){
   const v=document.getElementById('esp-input').value.trim();
   if(!v||especialidades.includes(v)) return;
+  await db.from('especialidades').insert({nome:v});
   especialidades.push(v); document.getElementById('esp-input').value=''; popularSelects();
 }
-function remEsp(i){ especialidades.splice(i,1); popularSelects(); }
+async function remEsp(i){
+  const nome=especialidades[i];
+  await db.from('especialidades').delete().eq('nome',nome);
+  especialidades.splice(i,1); popularSelects();
+}
 
 function renderMedicos(){
   const tb=document.getElementById('medicos-tbody'); if(!tb) return; tb.innerHTML='';
@@ -445,16 +508,17 @@ function renderMedicos(){
   });
 }
 
-function toggleMedico(id){ const m=medicos.find(x=>x.id===id); if(m){ m.ativo=!m.ativo; renderMedicos(); popularSelects(); renderConsultorios(); } }
+async function toggleMedico(id){ const m=medicos.find(x=>x.id===id); if(!m) return; m.ativo=!m.ativo; await db.from('medicos').update({ativo:m.ativo}).eq('id',id); renderMedicos(); popularSelects(); renderConsultorios(); }
 function abrirModalMedico(){ document.getElementById('modal-medico').classList.add('show'); popularSelects(); }
 function fecharModal(id){ document.getElementById(id).classList.remove('show'); }
 
-function salvarMedico(){
+async function salvarMedico(){
   const nome=document.getElementById('m-nome').value.trim();
   const esp=document.getElementById('m-esp').value;
   const consul=parseInt(document.getElementById('m-consul').value)||1;
   if(!nome) return;
-  medicos.push({id:proxMedId++,nome,esp,consul,ativo:true});
+  const {data}=await db.from('medicos').insert({nome,esp,consul,ativo:true}).select().single();
+  if(data) medicos.push(data);
   document.getElementById('m-nome').value=''; document.getElementById('m-consul').value='';
   fecharModal('modal-medico'); popularSelects(); renderConsultorios();
 }
@@ -503,7 +567,7 @@ function bipSom(tipo){
 }
 
 // ── SCAN / ATENDIMENTO ───────────────────────────────────
-function processarScan(){
+async function processarScan(){
   const val=document.getElementById('scan-input').value.trim(); if(!val) return;
   const pac=fila.find(p=>p.id===val);
   if(!pac){ bipSom('erro'); mostrarNotify('n-consul','QR Code não reconhecido.','n-warn'); document.getElementById('scan-input').value=''; return; }
@@ -512,6 +576,7 @@ function processarScan(){
   if(timerRodando){ bipSom('erro'); mostrarNotify('n-consul','Encerre o atendimento atual primeiro.','n-warn'); document.getElementById('scan-input').value=''; return; }
   bipSom('ok');
   pac.status='atendendo'; pac.consulNum=consulAtual; pacienteAtual=pac;
+  await db.from('fila').update({status:'atendendo',consul_num:consulAtual}).eq('id',val);
   document.getElementById('pc-nome').textContent=pac.nome;
   document.getElementById('pc-esp').textContent=pac.esp;
   document.getElementById('pc-num').textContent='N° '+pac.num+' · '+pac.med+' · Chegada: '+pac.hora;
@@ -547,14 +612,15 @@ function iniciarTimer(){
   },1000);
 }
 
-function salvarObs(){
+async function salvarObs(){
   if(!pacienteAtual) return;
   pacienteAtual.obs=document.getElementById('obs-input').value;
+  await db.from('fila').update({obs:pacienteAtual.obs}).eq('id',pacienteAtual.id);
   document.getElementById('obs-ok').style.display='inline';
   setTimeout(()=>document.getElementById('obs-ok').style.display='none',2500);
 }
 
-function encerrarAtendimento(){
+async function encerrarAtendimento(){
   if(!timerRodando||!pacienteAtual) return;
   clearInterval(timerInterval); timerRodando=false;
   const m=Math.floor(segundos/60),s=segundos%60;
@@ -562,7 +628,7 @@ function encerrarAtendimento(){
   pacienteAtual.obs=document.getElementById('obs-input').value||'';
   pacienteAtual.status='finalizado'; pacienteAtual.duracao=dur;
   pacienteAtual.fim=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
-  historico.push({...pacienteAtual});
+  await db.from('fila').update({status:'finalizado',duracao:dur,fim:pacienteAtual.fim,obs:pacienteAtual.obs}).eq('id',pacienteAtual.id);
   document.getElementById('timer-display').textContent='00:00';
   document.getElementById('timer-display').className='timer-big';
   document.getElementById('prog-fill').style.width='0%'; document.getElementById('prog-fill').style.background='var(--blue)';
@@ -591,22 +657,28 @@ function testarAudio(){
 }
 
 // ── RECEPÇÃO ─────────────────────────────────────────────
-function gerarAtendimento(){
+async function gerarAtendimento(){
   const nome=document.getElementById('rec-nome').value.trim();
   if(!nome){mostrarNotify('n-rec','Informe o nome do paciente.','n-warn');return;}
-  contador++;
-  const num=String(contador).padStart(3,'0');
-  // ID curto: P + número + 4 chars aleatórios — fácil de ler pela pistola
+  const nasc=document.getElementById('rec-nasc').value;
+  const tel=document.getElementById('rec-tel').value;
+  const hoje=new Date().toISOString().split('T')[0];
+  const {count}=await db.from('fila').select('*',{count:'exact',head:true}).gte('created_at',hoje+'T00:00:00');
+  const num=String((count||0)+1).padStart(3,'0');
   const rand=Math.random().toString(36).substring(2,6).toUpperCase();
   const id='P'+num+rand;
   const esp=document.getElementById('rec-esp').value;
-  const medSel=document.getElementById('rec-med');
-  const medId=parseInt(medSel.value);
+  const medId=parseInt(document.getElementById('rec-med').value);
   const medObj=medicos.find(m=>m.id===medId);
   const med=medObj?medObj.nome:'—', consulNum=medObj?medObj.consul:null;
   const hora=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
-  const p={id,num,nome,esp,med,consulNum,hora,status:'aguardando',duracao:null,fim:null,obs:''};
-  fila.push(p); atualizarFila(); atualizarTV(); gerarTicket(p);
+  const {data,error}=await db.from('fila').insert({
+    id,num,nome,nasc,tel,esp,med,med_id:medId,consul_num:consulNum,hora,status:'aguardando',obs:''
+  }).select().single();
+  if(error){mostrarNotify('n-rec','Erro ao cadastrar: '+error.message,'n-warn');return;}
+  const p=mapPaciente(data);
+  if(!fila.find(x=>x.id===p.id)) fila.push(p);
+  atualizarFila(); atualizarTV(); gerarTicket(p);
   mostrarNotify('n-rec','✓ Pulseira gerada — N° '+num+' · Código: '+id,'n-ok');
   document.getElementById('rec-nome').value='';
 }
@@ -668,20 +740,22 @@ function atualizarTV(){
 }
 
 function atualizarHistorico(){
+  const hist=historico();
   const tb=document.getElementById('hist-tbody'); tb.innerHTML='';
   const empty=document.getElementById('hist-empty');
-  if(!historico.length){empty.style.display='block';return;} empty.style.display='none';
-  historico.forEach(p=>{ const obs=p.obs?(p.obs.length>40?p.obs.substring(0,40)+'...':p.obs):'—'; tb.innerHTML+=`<tr><td><strong>${p.num}</strong></td><td>${p.nome}</td><td>${p.duracao||'—'}</td><td style="font-size:12px;color:var(--text2)">${obs}</td></tr>`; });
+  if(!hist.length){empty.style.display='block';return;} empty.style.display='none';
+  hist.forEach(p=>{ const obs=p.obs?(p.obs.length>40?p.obs.substring(0,40)+'...':p.obs):'—'; tb.innerHTML+=`<tr><td><strong>${p.num}</strong></td><td>${p.nome}</td><td>${p.duracao||'—'}</td><td style="font-size:12px;color:var(--text2)">${obs}</td></tr>`; });
 }
 
 function atualizarAdmin(){
-  const total=fila.length,espera=fila.filter(p=>p.status==='aguardando').length,enc=historico.length;
+  const hist=historico();
+  const total=fila.length,espera=fila.filter(p=>p.status==='aguardando').length,enc=hist.length;
   document.getElementById('adm-total').textContent=total;
   document.getElementById('adm-espera').textContent=espera;
   document.getElementById('adm-enc').textContent=enc;
-  if(historico.length){
-    const tot=historico.reduce((a,p)=>{ if(!p.duracao)return a; const[mm,ss]=p.duracao.split(':').map(Number); return a+mm*60+ss; },0);
-    const avg=Math.round(tot/historico.length);
+  if(hist.length){
+    const tot=hist.reduce((a,p)=>{ if(!p.duracao)return a; const[mm,ss]=p.duracao.split(':').map(Number); return a+mm*60+ss; },0);
+    const avg=Math.round(tot/hist.length);
     document.getElementById('adm-media').textContent=Math.floor(avg/60)+':'+String(avg%60).padStart(2,'0');
   } else document.getElementById('adm-media').textContent='—';
   const tb=document.getElementById('adm-tbody'); tb.innerHTML='';
@@ -714,9 +788,10 @@ function exportarExcel(){
 // ── EXPORTAR PDF ─────────────────────────────────────────
 function gerarPDF(){
   const data=new Date().toLocaleDateString('pt-BR'),hora=new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
-  const total=fila.length,enc=historico.length,espera=fila.filter(p=>p.status==='aguardando').length;
+  const hist=historico();
+  const total=fila.length,enc=hist.length,espera=fila.filter(p=>p.status==='aguardando').length;
   let media='—';
-  if(historico.length){ const tot=historico.reduce((a,p)=>{ if(!p.duracao)return a; const[mm,ss]=p.duracao.split(':').map(Number); return a+mm*60+ss; },0); const avg=Math.round(tot/historico.length); media=Math.floor(avg/60)+'min '+String(avg%60).padStart(2,'0')+'s'; }
+  if(hist.length){ const tot=hist.reduce((a,p)=>{ if(!p.duracao)return a; const[mm,ss]=p.duracao.split(':').map(Number); return a+mm*60+ss; },0); const avg=Math.round(tot/hist.length); media=Math.floor(avg/60)+'min '+String(avg%60).padStart(2,'0')+'s'; }
   let linhas='';
   fila.forEach(p=>{
     const st=p.status==='aguardando'?'Aguardando':p.status==='atendendo'?'Em atendimento':'Finalizado';
@@ -743,7 +818,7 @@ function mostrarNotify(id,msg,cls){
 setInterval(()=>{ const el=document.getElementById('tv-clock'); if(el) el.textContent=new Date().toLocaleTimeString('pt-BR'); },1000);
 
 // ── INIT ─────────────────────────────────────────────────
-popularSelects();
+initDB();
 </script>
 </body>
 </html>
